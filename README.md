@@ -10,18 +10,18 @@ Files Included:
 3)	producer.o- header file that contains all the functions declaration and external variables.
 ****************************************************************************
 How to compile:
-I used C compiler GCC to compile and run the multithreaded program.
-gcc -c driver.c -o driver.o
-gcc -c producer.c -o producers.o
-gcc producers.o driver.o -o cheeseburger_production -lpthread
-How to run:
+I used C compiler GCC to compile and run the multithreaded program. <br>
+gcc -c driver.c -o driver.o <br>
+gcc -c producer.c -o producers.o <br>
+gcc producers.o driver.o -o cheeseburger_production -lpthread <br>
+How to run:<br>
 ./cheeseburger_production
-The program will prompt you to enter the number of burgers you want to produce.
+The program will prompt you to enter the number of burgers you want to produce. <br>
 ******************************************************************************
 OVERVIEW:
-The program includes 3  producers as follows: 
-	Three milk producers produce milk bottles.
-	Two cheese producers consume milk to create cheese slices.
+The program includes 3  producers as follows: <br>
+	Three milk producers produce milk bottles. <br>
+	Two cheese producers consume milk to create cheese slices.<br>
 	One cheeseburger producer consumes cheese to produce cheeseburgers.
 ******************************************************************************
 The program manages two buffers: a glass of milk in size 9 and cheese in size 4. Each milk producer thread makes milk bottles, which is used by cheese producers to make cheese once there are at least three bottles on hand. The cheeseburger producer will use two slices of cheese to make a cheeseburger.
