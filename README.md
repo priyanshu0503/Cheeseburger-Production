@@ -13,6 +13,8 @@ Files Included:
 ****************************************************************************
 How to compile:
 I used C compiler GCC to compile and run the multithreaded program.<br>
+gcc -pthread main.c producer.c -o cheeseburger_production 
+
 
 ****************************************************************************
 How to run:<br>
