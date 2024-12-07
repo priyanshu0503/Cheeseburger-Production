@@ -12,10 +12,9 @@ Files Included:
 
 ****************************************************************************
 How to compile:
-I used C compiler GCC to compile and run the multithreaded program. 
-gcc -pthread main.c producer.c -o cheeseburger_production 
+I used C compiler GCC to compile and run the multithreaded program.<br>
 
 ****************************************************************************
-How to run:
-./cheeseburger_production
+How to run:<br>
+./cheeseburger_production<br>
 The program will prompt you to enter the number of burgers you want to produce. 
