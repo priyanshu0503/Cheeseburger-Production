@@ -1,145 +1,143 @@
+/****************************************************************************************
+Programming Assignment - 2 - CSC 456
+Due: December 09, 2024
+
+By Priyanshu Mittal
+This is a producer file for the program. 
+It contains all required producers function.
 
 *****************************************************************************************/
+
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <unistd.h>
+#include "producer.h"
 
 // Buffer sizes
 #define MILK_BUFFER_SIZE 9
 #define CHEESE_BUFFER_SIZE 4
 
-// Shared buffers
-int milk_buffer[MILK_BUFFER_SIZE] = {0};
-int cheese_buffer[CHEESE_BUFFER_SIZE] = {0};
+volatile int done =0; // Flag to indicate if all threads have finished
 
-// Semaphores and mutexes
-sem_t milk_sem;
-sem_t cheese_sem;
+// Shared Buffers
+int milk_buffer[MILK_BUFFER_SIZE];
+int cheese_buffer[CHEESE_BUFFER_SIZE];
+
+// Count for milk bottles and cheese slices
+int milk_count = 0, cheese_count = 0;
+
+// Number of Cheeseburger produced
+int num_cheeseburgers;
+
+// Semaphores and Mutexes
+sem_t empty_milk, full_milk;
+sem_t empty_cheese, full_cheese;
+
 pthread_mutex_t milk_mutex;
 pthread_mutex_t cheese_mutex;
 
-// Milk producer function
+
+// Milk Producer Function
 void* milk_producer(void* arg) {
     int id = *(int*)arg;
-    int produced = 0;
-
-    while (produced < MILK_BUFFER_SIZE / 3) {
-        sem_wait(&milk_sem); // Wait for space in the milk buffer
-        pthread_mutex_lock(&milk_mutex); // Lock the milk buffer
-
-
-        // Produce milk
-        for (int i = 0; i < MILK_BUFFER_SIZE; i++) {
-            if (milk_buffer[i] == 0) {
-                milk_buffer[i] = id;
-                //For testing purposes, I tried to print the milk producer ID and the time at which milk was produced
-                printf("Milk producer %d produced milk at %d\n", id, i);
-                produced++;
-                break;
-            }
+    while (!done) {
+        sem_wait(&empty_milk); // Wait for empty space in milk buffer
+        pthread_mutex_lock(&milk_mutex); // Lock milk buffer
+        
+        // Produce Milk
+        if (!done) {
+            milk_buffer[milk_count++] = id;
+            //For Debugging Purposes, I tried to milk producer ID
+            //printf("Milk Producer %d: Produced milk. Milk count = %d\n", id, milk_count);
         }
 
-        pthread_mutex_unlock(&milk_mutex); // Unlock the milk buffer
-        sem_post(&milk_sem); // Signal that milk has been produced
+        pthread_mutex_unlock(&milk_mutex); // Unlock milk buffer
+        sem_post(&full_milk); // Signal that milk buffer is full
     }
     return NULL;
 }
 
-// Cheese producer function
+// Cheese Producer Function
 void* cheese_producer(void* arg) {
     int id = *(int*)arg;
-    int produced = 0;
-    static int cheese_id_counter = 2314;
+    static int global_cheese_id = 1234; // Initialize with a value
+    while (!done) {
+        // Consume 3 bottles of milk
+        sem_wait(&full_milk);
+        sem_wait(&full_milk);
+        sem_wait(&full_milk);
 
-    while (1) {
-        pthread_mutex_lock(&milk_mutex); // Lock the milk buffer
-
-        // Count available milk bottles
-        int milk_count = 0;
-        for (int i = 0; i < MILK_BUFFER_SIZE; i++) {
-            if (milk_buffer[i] != 0) milk_count++;
-        }
-
-        if (milk_count >= 3) {
-            pthread_mutex_lock(&cheese_mutex);
-
-            // Consume 3 milk bottles
-            //int used_milk[3], idx = 0;
-            for (int i = 0, used = 0; i < MILK_BUFFER_SIZE && used < 3; i++) {
-                if (milk_buffer[i] != 0) {
-                    milk_buffer[i] = 0;
-                    used++;
-                }
-            }
-
-            //Assign a valid cheese slice ID to the buffer
-            for (int i = 0; i < CHEESE_BUFFER_SIZE; i++) {
-                if (cheese_buffer[i] == 0) {
-                    cheese_buffer[i] = cheese_id_counter;
-                    //For testing purposes, I tried to print the cheese slice ID 
-                    printf("Cheese producer %d produced cheese slice %d at %d\n", id, cheese_id_counter, i);
-                    cheese_id_counter += 1111;  // Increase for the next slice
-                    pthread_mutex_unlock(&cheese_mutex);
-                    break;
-                }
-            }
-
-        }
+        pthread_mutex_lock(&milk_mutex); // Lock milk buffer
+        if(!done) {
+        int milk1 = milk_buffer[--milk_count]; // Consume 1 bottle of milk
+        int milk2 = milk_buffer[--milk_count]; // Consume 2 bottles of milk
+        int milk3 = milk_buffer[--milk_count]; // Consume 3 bottles of milk
         
-        pthread_mutex_unlock(&milk_mutex);// Unlock the cheese buffer
-        sleep(1);
-    }
+        pthread_mutex_unlock(&milk_mutex); // Unlock milk buffer
+        
+        sem_post(&empty_milk); // Signal that milk buffer is empty
+        sem_post(&empty_milk);
+        sem_post(&empty_milk);
 
+
+        sem_wait(&empty_cheese); // Wait for empty space in cheese buffer
+        pthread_mutex_lock(&cheese_mutex);
+        int cheese = global_cheese_id ++;
+
+        // Add the cheese to the buffer
+        cheese_buffer[cheese_count++] = cheese;
+        //For Debugging Purposes, I tried to cheese producer ID
+        //printf("Cheese Producer %d: Produced cheese %d. Cheese count = %d\n", id, cheese, cheese_count);
+
+        pthread_mutex_unlock(&cheese_mutex); // Unlock cheese buffer
+        sem_post(&full_cheese); // Signal that cheese buffer is full
+        }
+        else{
+            pthread_mutex_unlock(&milk_mutex); // Unlock milk buffer
+            sem_post(&empty_milk); // Signal that milk buffer is empty
+            sem_post(&empty_milk);
+            sem_post(&empty_milk);
+        }
+    }
     return NULL;
 }
 
+//  Cheeseburger Producer Function
 void* cheeseburger_producer(void* arg) {
-    int num_burgers = *(int*)arg;
+    int cheeseburger_count = 0;  // Count of cheeseburgers produced
+    
+    while (num_cheeseburgers > 0) {
+        sem_wait(&full_cheese); // Wait for cheese buffer to be full
+        sem_wait(&full_cheese);
 
-    for (int i = 0; i < num_burgers; i++) {
-        int cheese_ids[2];
-        int idx = 0;
+        pthread_mutex_lock(&cheese_mutex); // Lock cheese buffer
 
-        // Wait until 2 valid cheese slices are available
-        while (1) {
-            pthread_mutex_lock(&cheese_mutex);
+        int cheese1 = cheese_buffer[--cheese_count]; // Consume 1 cheese from the buffer
+        int cheese2 = cheese_buffer[--cheese_count]; // Consume 2 cheese from the buffer
 
-            // Count the number of valid cheese slices
-            int cheese_count = 0;
-            for (int j = 0; j < CHEESE_BUFFER_SIZE; j++) {
-                if (cheese_buffer[j] != 0) cheese_count++;
-            }
+        pthread_mutex_unlock(&cheese_mutex); // Unlock cheese buffer
+        
+        sem_post(&empty_cheese); // Signal that cheese buffer is empty
+        sem_post(&empty_cheese);
 
-            // If enough cheese slices are available, consume them
-            if (cheese_count >= 2) {
-                // Collect two cheese slices
-                for (int j = 0; j < CHEESE_BUFFER_SIZE && idx < 2; j++) {
-                    if (cheese_buffer[j] != 0) {
-                        cheese_ids[idx++] = cheese_buffer[j];
-                        cheese_buffer[j] = 0;  // Consume the cheese slice
-                    }
-                }
-                pthread_mutex_unlock(&cheese_mutex);
-                break;
-            }
+        // Create the cheeseburger ID by concatenating the two cheese slice IDs
+        long long cheeseburger_id = (long long)cheese1 * 10000 + cheese2;
 
-            pthread_mutex_unlock(&cheese_mutex);
-            
-        }
-        // Check if the cheese slices are valid before making a cheeseburger
-        // Earlier I was printing directly and sometimes it was printing 0 and 1
-        // So I added a check to see if the cheese slices are valid
-        if (cheese_ids[0] != 0 && cheese_ids[1] != 0) {
-            printf("Printed Cheeseburger IDs, e.g., %d%d (made with two cheese slices %d and %d)\n",
-                   cheese_ids[0], cheese_ids[1], cheese_ids[0], cheese_ids[1]);
-        } else {
-            printf("Error: Invalid cheese slices detected during cheeseburger production\n");
-        }
+        // Increment the local cheeseburger count
+        cheeseburger_count++;
 
-        sleep(1); 
+        // Print the cheeseburger ID and details along with count
+        printf("Cheeseburger Producer %d: Produced cheeseburger %lld (made with two cheese slices %d and %d).\n", 
+               cheeseburger_count, cheeseburger_id, cheese1, cheese2);
+        
+        num_cheeseburgers--;
     }
-
+    done = 1; // Set done flag to 1
     return NULL;
 }
+
+
